@@ -1,0 +1,27 @@
+# Godot 4.x
+.godot/
+
+# Imported resources
+.import/
+
+# Export
+*.exe
+*.apk
+*.aab
+build/
+android/build/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# IDE
+.vscode/
+*.code-workspace
+.idea/
+
+# Misc
+*.tmp
+*.log
+*.bak

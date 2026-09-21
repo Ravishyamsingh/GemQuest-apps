@@ -1,0 +1,12 @@
+{
+  "level_id": 13,
+  "grid_columns": 8,
+  "grid_rows": 8,
+  "max_moves": 16,
+  "objective_type": "score_target",
+  "target_score": 1500,
+  "available_piece_ids": ["diamond","ruby","sapphire","emerald","topaz","amethyst"],
+  "difficulty": 6,
+  "obstacles": [],
+  "special_rules": {}
+}
