@@ -31,12 +31,42 @@ var selected_pos: Vector2i = Vector2i(-1, -1)
 ## Animation tracking
 var _animating: bool = false
 
+## Game systems
+var score_manager_node: Node = null
+var move_counter_node: Node = null
+var objective_tracker_node: Node = null
+
+## Preloaded scripts for child systems
+const ScoreManagerScript = preload("res://scripts/core/score_manager.gd")
+const MoveCounterScript = preload("res://scripts/core/move_counter.gd")
+const ObjectiveTrackerScript = preload("res://scripts/core/objective_tracker.gd")
+
 
 func _ready() -> void:
 	# Connect EventBus signals
 	EventBus.piece_selected.connect(_on_piece_selected)
 	EventBus.piece_deselected.connect(_on_piece_deselected)
 	EventBus.swap_requested.connect(_on_swap_requested)
+	
+	# Create child game systems
+	score_manager_node = Node.new()
+	score_manager_node.name = "ScoreManager"
+	score_manager_node.set_script(ScoreManagerScript)
+	add_child(score_manager_node)
+	
+	move_counter_node = Node.new()
+	move_counter_node.name = "MoveCounter"
+	move_counter_node.set_script(MoveCounterScript)
+	add_child(move_counter_node)
+	
+	objective_tracker_node = Node.new()
+	objective_tracker_node.name = "ObjectiveTracker"
+	objective_tracker_node.set_script(ObjectiveTrackerScript)
+	add_child(objective_tracker_node)
+	
+	# Listen for game-over conditions
+	EventBus.objective_complete.connect(_on_objective_complete)
+	EventBus.moves_exhausted.connect(_on_moves_exhausted)
 	
 	# Create piece definitions
 	_create_piece_definitions()
@@ -118,6 +148,11 @@ func setup_board(data: Dictionary) -> void:
 	
 	# Fill the board ensuring no initial matches
 	_fill_board_no_matches()
+	
+	# Initialise game systems
+	score_manager_node.reset()
+	move_counter_node.setup(data.get("max_moves", 25))
+	objective_tracker_node.setup(data)
 	
 	# Draw the board background
 	queue_redraw()
@@ -305,14 +340,23 @@ func _on_swap_requested(from_pos: Vector2i, to_pos: Vector2i) -> void:
 		EventBus.swap_rejected.emit(from_pos, to_pos)
 		state = BoardState.IDLE
 	else:
-		# Valid swap
+		# Valid swap — consume a move
 		EventBus.swap_completed.emit(from_pos, to_pos)
+		move_counter_node.use_move()
 		
 		# Process matches and cascades
 		state = BoardState.MATCHING
 		await _process_matches_and_cascades(matches)
 		
 		# Check end conditions
+		if state == BoardState.WIN or state == BoardState.LOSE:
+			return
+		
+		# Check for no valid moves and shuffle if needed
+		if not has_valid_moves():
+			shuffle_board()
+			await get_tree().create_timer(0.35).timeout
+		
 		state = BoardState.IDLE
 
 
@@ -352,6 +396,9 @@ func _process_matches_and_cascades(initial_matches: Array) -> void:
 		# Emit match found
 		EventBus.match_found.emit(matches)
 		
+		# Calculate score for this cascade step
+		score_manager_node.add_match_score(matches, cascade_depth)
+		
 		# Collect all positions to remove
 		var positions_to_remove: Dictionary = {}  # Used as a set
 		for match_result in matches:
@@ -368,6 +415,13 @@ func _process_matches_and_cascades(initial_matches: Array) -> void:
 		# Refill empty cells at top
 		await _refill_empty_cells()
 		
+		# Check if objective was met during this cascade
+		if objective_tracker_node.is_complete:
+			state = BoardState.WIN
+			EventBus.cascade_complete.emit()
+			EventBus.level_won.emit()
+			return
+		
 		# Emit cascade step
 		EventBus.cascade_step.emit(cascade_depth)
 		
@@ -380,6 +434,11 @@ func _process_matches_and_cascades(initial_matches: Array) -> void:
 			break
 	
 	EventBus.cascade_complete.emit()
+	
+	# After cascade resolves, check if player is out of moves
+	if not move_counter_node.has_moves() and not objective_tracker_node.is_complete:
+		state = BoardState.LOSE
+		EventBus.level_lost.emit()
 
 
 ## Remove matched pieces with pop animation.
@@ -495,3 +554,15 @@ func shuffle_board() -> void:
 				idx += 1
 	
 	EventBus.board_shuffled.emit()
+
+
+## ===== WIN / LOSE HANDLERS =====
+
+func _on_objective_complete() -> void:
+	# Objective met — the cascade loop handles this
+	pass
+
+
+func _on_moves_exhausted() -> void:
+	# Moves ran out — the cascade loop handles the lose check after resolution
+	pass
