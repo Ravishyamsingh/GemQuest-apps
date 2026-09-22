@@ -18,6 +18,7 @@ var board_origin: Vector2 = Vector2.ZERO
 var piece_definitions: Array[PieceData] = []
 ## Piece IDs available for the current level
 var available_piece_ids: Array = []
+var _available_piece_cache: Array[PieceData] = []
 
 ## The 2D grid array: grid[col][row] = Piece node or null
 var grid: Array = []
@@ -113,12 +114,17 @@ func _get_piece_data(piece_id: StringName) -> PieceData:
 
 ## Get available PieceData list for the current level.
 func _get_available_pieces() -> Array[PieceData]:
-	var available: Array[PieceData] = []
+	if _available_piece_cache.is_empty():
+		_refresh_available_piece_cache()
+	return _available_piece_cache
+
+
+func _refresh_available_piece_cache() -> void:
+	_available_piece_cache.clear()
 	for pid in available_piece_ids:
 		var pd := _get_piece_data(StringName(pid))
 		if pd:
-			available.append(pd)
-	return available
+			_available_piece_cache.append(pd)
 
 
 ## ===== PUBLIC API =====
@@ -132,6 +138,7 @@ func setup_board(data: Dictionary) -> void:
 	columns = data.get("grid_columns", 8)
 	rows = data.get("grid_rows", 8)
 	available_piece_ids = data.get("available_piece_ids", ["diamond", "ruby", "sapphire", "emerald", "topaz", "amethyst"])
+	_refresh_available_piece_cache()
 	
 	# Calculate cell size to fit the screen
 	var viewport_size := get_viewport_rect().size
@@ -386,7 +393,8 @@ func _on_swap_requested(from_pos: Vector2i, to_pos: Vector2i) -> void:
 	if not has_valid_moves():
 		state = BoardState.CASCADING
 		shuffle_board()
-		await get_tree().create_timer(0.35).timeout
+		# shuffle_board's longest visual sequence is 0.50s.
+		await get_tree().create_timer(0.56).timeout
 
 	state = BoardState.IDLE
 
@@ -396,10 +404,12 @@ func _on_swap_requested(from_pos: Vector2i, to_pos: Vector2i) -> void:
 func _animate_swap(piece_a: Piece, piece_b: Piece, pos_a: Vector2i, pos_b: Vector2i) -> void:
 	var target_a := _grid_to_world(pos_b.x, pos_b.y)
 	var target_b := _grid_to_world(pos_a.x, pos_a.y)
-	var tween_a := piece_a.animate_move_to(target_a, 0.15)
-	var tween_b := piece_b.animate_move_to(target_b, 0.15)
-	await tween_a.finished
-	await tween_b.finished
+	piece_a.animate_move_to(target_a, 0.15)
+	piece_b.animate_move_to(target_b, 0.15)
+	# Both tweens start together; use a timer rather than awaiting their
+	# completion signals sequentially, since the second may finish in the same
+	# frame as the first.
+	await get_tree().create_timer(0.17).timeout
 
 
 func _animate_invalid_swap(piece_a: Piece, piece_b: Piece, pos_a: Vector2i, pos_b: Vector2i) -> void:
@@ -410,10 +420,9 @@ func _animate_invalid_swap(piece_a: Piece, piece_b: Piece, pos_a: Vector2i, pos_
 	piece_a.animate_move_to(piece_a.position.lerp(target_a, 0.38), 0.08)
 	piece_b.animate_move_to(piece_b.position.lerp(target_b, 0.38), 0.08)
 	await get_tree().create_timer(0.09).timeout
-	var tween_a := piece_a.animate_move_to(_grid_to_world(pos_a.x, pos_a.y), 0.12)
-	var tween_b := piece_b.animate_move_to(_grid_to_world(pos_b.x, pos_b.y), 0.12)
-	await tween_a.finished
-	await tween_b.finished
+	piece_a.animate_move_to(_grid_to_world(pos_a.x, pos_a.y), 0.12)
+	piece_b.animate_move_to(_grid_to_world(pos_b.x, pos_b.y), 0.12)
+	await get_tree().create_timer(0.14).timeout
 
 
 func _preview_swap_matches(from_pos: Vector2i, to_pos: Vector2i) -> Array:
@@ -520,7 +529,7 @@ func _remove_matched_pieces(positions: Array) -> void:
 				var color: Color = piece.piece_data.colour if piece.piece_data else Color.WHITE
 				burst.setup(_grid_to_world(int(pos.x), int(pos.y)), color)
 	
-	await get_tree().create_timer(0.25).timeout
+	await get_tree().create_timer(0.30).timeout
 	
 	# Actually free the pieces
 	for pos in positions:
@@ -536,6 +545,7 @@ func _remove_matched_pieces(positions: Array) -> void:
 ## Apply gravity — pieces above gaps fall down.
 func _apply_gravity() -> void:
 	var any_fell := false
+	var longest_fall := 0.0
 	
 	for col in columns:
 		# Process from bottom to top
@@ -549,12 +559,14 @@ func _apply_gravity() -> void:
 					grid[col][read_row] = null
 					piece.grid_position = Vector2i(col, write_row)
 					var target := _grid_to_world(col, write_row)
-					piece.animate_move_to(target, 0.08 * (write_row - read_row))
+					var fall_duration := 0.08 * (write_row - read_row)
+					piece.animate_move_to(target, fall_duration)
+					longest_fall = maxf(longest_fall, fall_duration)
 					any_fell = true
 				write_row -= 1
 	
 	if any_fell:
-		await get_tree().create_timer(0.2).timeout
+		await get_tree().create_timer(longest_fall + 0.03).timeout
 
 
 ## Refill empty cells at the top of each column.

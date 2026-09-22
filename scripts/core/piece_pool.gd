@@ -36,8 +36,9 @@ func release(piece: Piece) -> void:
 	if piece == null:
 		return
 	var idx := _active.find(piece)
-	if idx != -1:
-		_active.remove_at(idx)
+	if idx == -1:
+		return
+	_active.remove_at(idx)
 	
 	piece.reset_for_pool()
 	_pool.append(piece)

@@ -130,7 +130,8 @@ func _populate_level_nodes() -> void:
 	for child in _nodes_container.get_children():
 		child.queue_free()
 
-	var current_lvl := clampi(SaveManager.get_current_level(), 1, TOTAL_LEVELS)
+	var progress_level := SaveManager.get_current_level()
+	var current_lvl := clampi(progress_level, 1, TOTAL_LEVELS)
 	for i in range(TOTAL_LEVELS):
 		var level_id := i + 1
 		var node: LevelNode = level_node_scene.instantiate()
@@ -139,11 +140,12 @@ func _populate_level_nodes() -> void:
 
 		var unlocked := SaveManager.is_level_unlocked(level_id)
 		var completed := SaveManager.is_level_completed(level_id)
-		node.setup(level_id, unlocked, completed, level_id == current_lvl, SaveManager.get_level_stars(level_id))
+		var is_current := progress_level <= TOTAL_LEVELS and level_id == current_lvl
+		node.setup(level_id, unlocked, completed, is_current, SaveManager.get_level_stars(level_id))
 		node.level_selected.connect(_on_level_selected)
 
 
-## Small, pooled-by-scene decorative accents keep the map lively without
+## Small scene-owned decorative accents keep the map lively without
 ## introducing a particle system for every level.
 func _populate_decorations() -> void:
 	if not _decorations:
