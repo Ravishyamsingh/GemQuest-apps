@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://level_info_popup_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/level_info_popup.gd" id="1_lip"]
-[ext_resource type="Texture2D" uid="uid://level_node_unlocked_tex" path="res://assets/graphics/ui/star_empty.png" id="2_star"]
+[ext_resource type="Texture2D" path="res://assets/graphics/ui/star_empty.png" id="2_star"]
 
 [node name="LevelInfoPopup" type="Control"]
 layout_mode = 3

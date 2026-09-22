@@ -6,7 +6,6 @@ const MAP_WIDTH := 720.0
 const MAP_HEIGHT := 2600.0
 
 @onready var _scroll_container: ScrollContainer = $ScrollContainer
-@onready var _map_content: Control = $ScrollContainer/MapContent
 @onready var _path_line: Line2D = $ScrollContainer/MapContent/PathLine
 @onready var _nodes_container: Control = $ScrollContainer/MapContent/NodesContainer
 @onready var _back_btn: Button = $TopBar/BackButton

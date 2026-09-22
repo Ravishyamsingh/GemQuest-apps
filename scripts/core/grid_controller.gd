@@ -77,7 +77,7 @@ func grid_to_world(col: int, row: int) -> Vector2:
 
 ## Convert world position to grid position.
 func world_to_grid(world_pos: Vector2) -> Vector2i:
-	var local := world_pos - board_origin
-	var col := int(local.x / cell_size)
-	var row := int(local.y / cell_size)
+	var local_position: Vector2 = world_pos - board_origin
+	var col: int = int(local_position.x / cell_size)
+	var row: int = int(local_position.y / cell_size)
 	return Vector2i(col, row)

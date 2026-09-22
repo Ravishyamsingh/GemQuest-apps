@@ -35,8 +35,8 @@ static func _find_horizontal(grid: Array, columns: int, rows: int, get_type: Cal
 				run_start = col
 				run_type = p_type
 		# Check the last run in the row
-		var run_length := columns - run_start
-		if run_length >= 3 and run_type != &"":
+		var final_run_length := columns - run_start
+		if final_run_length >= 3 and run_type != &"":
 			var positions: Array = []
 			for c in range(run_start, columns):
 				positions.append(Vector2i(c, row))
@@ -64,8 +64,8 @@ static func _find_vertical(grid: Array, columns: int, rows: int, get_type: Calla
 					matches.append(MatchResult.create(positions, "vertical", run_type))
 				run_start = row
 				run_type = p_type
-		var run_length := rows - run_start
-		if run_length >= 3 and run_type != &"":
+		var final_run_length := rows - run_start
+		if final_run_length >= 3 and run_type != &"":
 			var positions: Array = []
 			for r in range(run_start, rows):
 				positions.append(Vector2i(col, r))

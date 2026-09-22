@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://home_screen"]
 
 [ext_resource type="Script" path="res://scripts/ui/home_screen.gd" id="1_hom"]
-[ext_resource type="Texture2D" uid="uid://gem_diamond_tex" path="res://assets/graphics/pieces/gem_diamond.png" id="2_dia"]
+[ext_resource type="Texture2D" path="res://assets/graphics/pieces/gem_diamond.png" id="2_dia"]
 
 [node name="HomeScreen" type="Control"]
 layout_mode = 3

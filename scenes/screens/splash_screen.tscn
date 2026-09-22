@@ -1,9 +1,9 @@
 [gd_scene load_steps=5 format=3 uid="uid://splash_screen"]
 
 [ext_resource type="Script" path="res://scripts/ui/splash_screen.gd" id="1_spl"]
-[ext_resource type="Texture2D" uid="uid://gem_diamond_tex" path="res://assets/graphics/pieces/gem_diamond.png" id="2_dia"]
-[ext_resource type="Texture2D" uid="uid://gem_ruby_tex" path="res://assets/graphics/pieces/gem_ruby.png" id="3_rub"]
-[ext_resource type="Texture2D" uid="uid://gem_sapphire_tex" path="res://assets/graphics/pieces/gem_sapphire.png" id="4_sap"]
+[ext_resource type="Texture2D" path="res://assets/graphics/pieces/gem_diamond.png" id="2_dia"]
+[ext_resource type="Texture2D" path="res://assets/graphics/pieces/gem_ruby.png" id="3_rub"]
+[ext_resource type="Texture2D" path="res://assets/graphics/pieces/gem_sapphire.png" id="4_sap"]
 
 [node name="SplashScreen" type="Control"]
 layout_mode = 3

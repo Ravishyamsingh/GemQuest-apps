@@ -28,9 +28,6 @@ var piece_scene: PackedScene = preload("res://scenes/gameplay/piece.tscn")
 ## Currently selected piece position
 var selected_pos: Vector2i = Vector2i(-1, -1)
 
-## Animation tracking
-var _animating: bool = false
-
 ## Game systems
 var score_manager_node: Node = null
 var move_counter_node: Node = null
@@ -135,7 +132,6 @@ func setup_board(data: Dictionary) -> void:
 	
 	# Centre the board horizontally, place it in the middle-lower area
 	var total_board_width := columns * cell_size
-	var total_board_height := rows * cell_size
 	board_origin = Vector2(
 		(viewport_size.x - total_board_width) / 2.0,
 		viewport_size.y * 0.25  # Start 25% from top
@@ -281,9 +277,9 @@ func _grid_to_world(col: int, row: int) -> Vector2:
 
 ## Convert world position to grid position.
 func _world_to_grid(world_pos: Vector2) -> Vector2i:
-	var local := world_pos - board_origin
-	var col := int(local.x / cell_size)
-	var row := int(local.y / cell_size)
+	var local_position: Vector2 = world_pos - board_origin
+	var col: int = int(local_position.x / cell_size)
+	var row: int = int(local_position.y / cell_size)
 	return Vector2i(clampi(col, 0, columns - 1), clampi(row, 0, rows - 1))
 
 
@@ -421,17 +417,20 @@ func _process_matches_and_cascades(initial_matches: Array) -> void:
 		EventBus.match_found.emit(matches)
 		
 		# Calculate score for this cascade step and spawn floating texts
-		var step_score := score_manager_node.calculate_matches_score(matches, cascade_depth) if score_manager_node.has_method("calculate_matches_score") else 0
+		var step_score: int = 0
+		if score_manager_node.has_method("calculate_matches_score"):
+			step_score = int(score_manager_node.calculate_matches_score(matches, cascade_depth))
 		score_manager_node.add_match_score(matches, cascade_depth)
 		
 		# Spawn floating score text at center of first match
 		if not matches.is_empty() and floating_text_scene != null:
-			var first_match = matches[0]
+			var first_match: MatchResult = matches[0] as MatchResult
 			if not first_match.positions.is_empty():
-				var center_pos := grid_to_world(first_match.positions[0])
+				var match_pos: Vector2i = first_match.positions[0]
+				var center_pos: Vector2 = _grid_to_world(match_pos.x, match_pos.y)
 				var ft = floating_text_scene.instantiate()
 				add_child(ft)
-				var text_label := "+%d" % (first_match.positions.size() * 10 * cascade_depth)
+				var text_label := "+%d" % step_score
 				if cascade_depth > 1:
 					text_label += " (x%d)" % cascade_depth
 				ft.setup(text_label, center_pos)
@@ -488,7 +487,7 @@ func _remove_matched_pieces(positions: Array) -> void:
 				var burst = particle_burst_scene.instantiate()
 				add_child(burst)
 				var color: Color = piece.piece_data.colour if piece.piece_data else Color.WHITE
-				burst.setup(grid_to_world(pos), color)
+				burst.setup(_grid_to_world(int(pos.x), int(pos.y)), color)
 	
 	await get_tree().create_timer(0.25).timeout
 	

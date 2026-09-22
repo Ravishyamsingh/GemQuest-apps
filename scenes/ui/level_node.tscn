@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://level_node_01"]
 
 [ext_resource type="Script" path="res://scripts/ui/level_node.gd" id="1_ln"]
-[ext_resource type="Texture2D" uid="uid://level_node_unlocked_tex" path="res://assets/graphics/ui/node_unlocked.png" id="2_tex"]
+[ext_resource type="Texture2D" path="res://assets/graphics/ui/node_unlocked.png" id="2_tex"]
 
 [node name="LevelNode" type="Control"]
 custom_minimum_size = Vector2(80, 80)

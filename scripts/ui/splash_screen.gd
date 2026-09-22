@@ -5,9 +5,6 @@ const SPLASH_DURATION := 2.2
 
 @onready var _center_container: VBoxContainer = $CenterContainer
 @onready var _gem_center: TextureRect = $CenterContainer/Crest/GemCenter
-@onready var _gem_left: TextureRect = $CenterContainer/Crest/GemLeft
-@onready var _gem_right: TextureRect = $CenterContainer/Crest/GemRight
-@onready var _glow: ColorRect = $GlowCenter
 
 
 func _ready() -> void:

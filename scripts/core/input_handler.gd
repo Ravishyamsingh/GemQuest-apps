@@ -108,9 +108,9 @@ func _screen_to_grid(screen_pos: Vector2) -> Vector2i:
 	if board_manager == null or board_manager.cell_size <= 0.0:
 		return Vector2i(-1, -1)
 	
-	var local := screen_pos - board_manager.board_origin
-	var col := int(local.x / board_manager.cell_size)
-	var row := int(local.y / board_manager.cell_size)
+	var local_position: Vector2 = screen_pos - board_manager.board_origin
+	var col: int = int(local_position.x / board_manager.cell_size)
+	var row: int = int(local_position.y / board_manager.cell_size)
 	
 	if col >= 0 and col < board_manager.columns and row >= 0 and row < board_manager.rows:
 		return Vector2i(col, row)

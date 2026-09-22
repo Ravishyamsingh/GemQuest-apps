@@ -214,9 +214,9 @@ func _show_overlay(title_text: String, body_text: String, is_win: bool, stars: i
 			if s < stars:
 				tr.scale = Vector2.ZERO
 				tr.pivot_offset = Vector2(24, 24)
-				var tween := create_tween()
-				tween.tween_property(tr, "scale", Vector2(1.2, 1.2), 0.25).set_delay(0.3 + s * 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-				tween.tween_property(tr, "scale", Vector2(1.0, 1.0), 0.1)
+				var star_tween := create_tween()
+				star_tween.tween_property(tr, "scale", Vector2(1.2, 1.2), 0.25).set_delay(0.3 + s * 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				star_tween.tween_property(tr, "scale", Vector2(1.0, 1.0), 0.1)
 	
 	var body := Label.new()
 	body.text = body_text
