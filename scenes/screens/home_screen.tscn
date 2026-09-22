@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://home_screen"]
+[gd_scene load_steps=3 format=3 uid="uid://home_screen"]
 
-[ext_resource type="Script" path="res://scripts/ui/home_screen.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/ui/home_screen.gd" id="1_hom"]
+[ext_resource type="Texture2D" uid="uid://gem_diamond_tex" path="res://assets/graphics/pieces/gem_diamond.png" id="2_dia"]
 
 [node name="HomeScreen" type="Control"]
 layout_mode = 3
@@ -9,7 +10,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1")
+script = ExtResource("1_hom")
 
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
@@ -18,26 +19,37 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.09, 0.05, 0.22, 1)
+color = Color(0.08, 0.04, 0.18, 1)
+
+[node name="FloatingGemsContainer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="TopBar" type="Control" parent="."]
+custom_minimum_size = Vector2(720, 100)
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 90.0
+offset_bottom = 100.0
 grow_horizontal = 2
 
 [node name="SettingsButton" type="Button" parent="TopBar"]
-custom_minimum_size = Vector2(60, 60)
+custom_minimum_size = Vector2(64, 64)
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -80.0
+offset_left = -84.0
 offset_top = 20.0
 offset_right = -20.0
-offset_bottom = 80.0
+offset_bottom = 84.0
 grow_horizontal = 0
+pivot_offset = Vector2(32, 32)
 theme_override_font_sizes/font_size = 28
 text = "⚙"
 
@@ -48,47 +60,70 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -240.0
-offset_right = 220.0
-offset_bottom = 240.0
+offset_left = -260.0
+offset_top = -280.0
+offset_right = 260.0
+offset_bottom = 280.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 28
+theme_override_constants/separation = 22
 alignment = 1
+
+[node name="LogoIcon" type="TextureRect" parent="Content"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+size_flags_horizontal = 4
+texture = ExtResource("2_dia")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="TitleLabel" type="Label" parent="Content"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
-theme_override_colors/font_shadow_color = Color(0.3, 0.1, 0.5, 0.9)
-theme_override_constants/shadow_offset_x = 2
-theme_override_constants/shadow_offset_y = 4
-theme_override_font_sizes/font_size = 56
+theme_override_colors/font_color = Color(1, 0.88, 0.35, 1)
+theme_override_colors/font_shadow_color = Color(0.25, 0.08, 0.5, 0.95)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 5
+theme_override_font_sizes/font_size = 58
 text = "GemQuest"
 horizontal_alignment = 1
 
 [node name="Subtitle" type="Label" parent="Content"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.75, 0.7, 0.9, 1)
+theme_override_colors/font_color = Color(0.8, 0.75, 0.95, 0.9)
 theme_override_font_sizes/font_size = 20
 text = "Match-3 Puzzle Saga"
 horizontal_alignment = 1
 
 [node name="Spacer" type="Control" parent="Content"]
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 
 [node name="PlayButton" type="Button" parent="Content"]
-custom_minimum_size = Vector2(260, 75)
+custom_minimum_size = Vector2(280, 78)
 layout_mode = 2
 size_flags_horizontal = 4
-pivot_offset = Vector2(130, 37.5)
+pivot_offset = Vector2(140, 39)
 theme_override_font_sizes/font_size = 32
 text = "PLAY ▶"
 
-[node name="ProgressLabel" type="Label" parent="Content"]
+[node name="Spacer2" type="Control" parent="Content"]
+custom_minimum_size = Vector2(0, 10)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.85, 1, 0.9)
+
+[node name="ProgressPill" type="PanelContainer" parent="Content"]
+custom_minimum_size = Vector2(360, 48)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="ProgressMargin" type="MarginContainer" parent="Content/ProgressPill"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_right = 16
+
+[node name="ProgressLabel" type="Label" parent="Content/ProgressPill/ProgressMargin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 18
-text = "Level 1 Unlocked • ★ 0 Stars"
+text = "Level 1 Unlocked  •  ★ 0 Stars"
 horizontal_alignment = 1
+vertical_alignment = 1

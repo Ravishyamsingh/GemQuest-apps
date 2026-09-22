@@ -1,19 +1,37 @@
-# splash_screen.gd — Displays the GemQuest logo for ~2 seconds, then transitions to Home.
+# splash_screen.gd — Polished brand splash screen with emblem animations.
 extends Control
 
-const SPLASH_DURATION := 2.0
+const SPLASH_DURATION := 2.2
+
+@onready var _center_container: VBoxContainer = $CenterContainer
+@onready var _gem_center: TextureRect = $CenterContainer/Crest/GemCenter
+@onready var _gem_left: TextureRect = $CenterContainer/Crest/GemLeft
+@onready var _gem_right: TextureRect = $CenterContainer/Crest/GemRight
+@onready var _glow: ColorRect = $GlowCenter
 
 
 func _ready() -> void:
-	# Fade in the logo
 	modulate.a = 0.0
-	var tween := create_tween()
-	tween.tween_property(self, "modulate:a", 1.0, 0.5)
-	tween.tween_interval(SPLASH_DURATION - 1.0)
-	tween.tween_property(self, "modulate:a", 0.0, 0.5)
-	tween.tween_callback(_go_to_home)
+	_center_container.scale = Vector2(0.8, 0.8)
+	
+	# Entry animation
+	var intro_tween := create_tween().set_parallel(true)
+	intro_tween.tween_property(self, "modulate:a", 1.0, 0.45)
+	intro_tween.tween_property(_center_container, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	
+	# Crest gem floating idle
+	if _gem_center:
+		var gem_tween := create_tween().set_loops()
+		gem_tween.tween_property(_gem_center, "position:y", -46.0, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		gem_tween.tween_property(_gem_center, "position:y", -40.0, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	
+	# Schedule transition to Home
+	get_tree().create_timer(SPLASH_DURATION).timeout.connect(_transition_to_home)
 
 
-func _go_to_home() -> void:
+func _transition_to_home() -> void:
+	var out_tween := create_tween()
+	out_tween.tween_property(self, "modulate:a", 0.0, 0.35)
+	await out_tween.finished
 	GameManager.state = GameManager.GameState.HOME
 	GameManager.change_screen("home")
