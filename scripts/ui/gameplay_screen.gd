@@ -9,6 +9,9 @@ var level_data_cache: Dictionary = {}
 ## Preload the board manager script
 const BoardManagerScript = preload("res://scripts/core/board_manager.gd")
 const InputHandlerScript = preload("res://scripts/core/input_handler.gd")
+const PauseMenuScene = preload("res://scenes/ui/pause_menu.tscn")
+
+var _active_pause_menu: PauseMenu = null
 
 ## HUD references
 @onready var _moves_label: Label = $HUD/TopBar/MovesLabel
@@ -132,7 +135,26 @@ func _on_level_lost() -> void:
 
 
 func _on_pause_pressed() -> void:
-	GameManager.go_to_level_map()
+	if _active_pause_menu and is_instance_valid(_active_pause_menu):
+		return
+	
+	if input_handler:
+		input_handler.input_enabled = false
+	
+	_active_pause_menu = PauseMenuScene.instantiate()
+	add_child(_active_pause_menu)
+	_active_pause_menu.setup_and_show(level_data_cache)
+	_active_pause_menu.resumed.connect(func():
+		if input_handler:
+			input_handler.input_enabled = true
+		_active_pause_menu = null
+	)
+	_active_pause_menu.restarted.connect(func():
+		_active_pause_menu = null
+	)
+	_active_pause_menu.quit_to_map.connect(func():
+		_active_pause_menu = null
+	)
 
 
 ## Create and show a result overlay (win or lose).

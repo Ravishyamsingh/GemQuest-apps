@@ -1,6 +1,5 @@
-# audio_manager.gd — Handles music and SFX playback.
-# Provides simple play/stop API; routes audio through separate buses
-# and hooks directly into EventBus signals for seamless game audio.
+# audio_manager.gd — Handles music and SFX playback with smart scene routing.
+# Routes audio through separate buses and hooks directly into EventBus signals.
 extends Node
 
 ## Audio bus names
@@ -18,6 +17,7 @@ var _sfx_cache: Dictionary = {}
 ## State
 var music_enabled: bool = true
 var sfx_enabled: bool = true
+var _current_bgm_track: String = ""
 
 ## Asset paths
 const SOUND_PATHS := {
@@ -31,7 +31,8 @@ const SOUND_PATHS := {
 	"win": "res://assets/audio/sfx/level_win.wav",
 	"lose": "res://assets/audio/sfx/level_lose.wav",
 }
-const BGM_PATH := "res://assets/audio/music/bgm_gameplay.wav"
+const BGM_GAMEPLAY_PATH := "res://assets/audio/music/bgm_gameplay.wav"
+const BGM_MENU_PATH := "res://assets/audio/music/bgm_menu.wav"
 
 
 func _ready() -> void:
@@ -70,15 +71,32 @@ func _connect_events() -> void:
 	EventBus.swap_rejected.connect(func(_f: Vector2i, _t: Vector2i): play_sfx_by_name("invalid"))
 	EventBus.match_found.connect(_on_match_found)
 	EventBus.cascade_step.connect(_on_cascade_step)
-	EventBus.level_won.connect(func(): play_sfx_by_name("win"))
-	EventBus.level_lost.connect(func(): play_sfx_by_name("lose"))
+	EventBus.level_won.connect(_on_level_won)
+	EventBus.level_lost.connect(_on_level_lost)
 	EventBus.level_started.connect(_on_level_started)
+	EventBus.screen_change_requested.connect(_on_screen_change_requested)
+
+
+func _on_screen_change_requested(screen_name: String) -> void:
+	match screen_name:
+		"home", "level_map", "settings":
+			play_menu_music()
+		"gameplay":
+			play_gameplay_music()
 
 
 func _on_level_started(_level_id: int) -> void:
-	if ResourceLoader.exists(BGM_PATH):
-		var bgm: AudioStream = load(BGM_PATH)
-		play_music(bgm)
+	play_gameplay_music()
+
+
+func _on_level_won() -> void:
+	stop_music(0.2)
+	play_sfx_by_name("win")
+
+
+func _on_level_lost() -> void:
+	stop_music(0.2)
+	play_sfx_by_name("lose")
 
 
 func _on_match_found(_matches: Array) -> void:
@@ -88,6 +106,26 @@ func _on_match_found(_matches: Array) -> void:
 func _on_cascade_step(depth: int) -> void:
 	if depth > 1:
 		play_sfx_by_name("combo")
+
+
+## Play menu background music.
+func play_menu_music(fade_in: float = 0.4) -> void:
+	if _current_bgm_track == BGM_MENU_PATH and _music_player.playing:
+		return
+	if ResourceLoader.exists(BGM_MENU_PATH):
+		_current_bgm_track = BGM_MENU_PATH
+		var stream: AudioStream = load(BGM_MENU_PATH)
+		play_music(stream, fade_in)
+
+
+## Play gameplay background music.
+func play_gameplay_music(fade_in: float = 0.4) -> void:
+	if _current_bgm_track == BGM_GAMEPLAY_PATH and _music_player.playing:
+		return
+	if ResourceLoader.exists(BGM_GAMEPLAY_PATH):
+		_current_bgm_track = BGM_GAMEPLAY_PATH
+		var stream: AudioStream = load(BGM_GAMEPLAY_PATH)
+		play_music(stream, fade_in)
 
 
 ## Play background music (loops).
@@ -104,6 +142,7 @@ func play_music(stream: AudioStream, fade_in: float = 0.5) -> void:
 
 ## Stop music.
 func stop_music(fade_out: float = 0.5) -> void:
+	_current_bgm_track = ""
 	if fade_out > 0.0 and _music_player.playing:
 		var tween := create_tween()
 		tween.tween_property(_music_player, "volume_db", -80.0, fade_out)
@@ -136,8 +175,11 @@ func set_music_enabled(enabled: bool) -> void:
 	music_enabled = enabled
 	if not enabled:
 		stop_music(0.0)
-	elif not _music_player.playing and ResourceLoader.exists(BGM_PATH):
-		play_music(load(BGM_PATH))
+	elif not _music_player.playing:
+		if GameManager.state == GameManager.GameState.GAMEPLAY:
+			play_gameplay_music()
+		else:
+			play_menu_music()
 
 
 ## Toggle SFX on/off.

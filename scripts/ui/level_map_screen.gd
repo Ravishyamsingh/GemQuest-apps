@@ -13,7 +13,9 @@ const MAP_HEIGHT := 2600.0
 @onready var _stars_label: Label = $TopBar/StarsLabel
 
 var level_node_scene: PackedScene = preload("res://scenes/ui/level_node.tscn")
+var level_info_popup_scene: PackedScene = preload("res://scenes/ui/level_info_popup.tscn")
 var _node_positions: Array[Vector2] = []
+var _active_popup: LevelInfoPopup = null
 
 
 func _ready() -> void:
@@ -96,7 +98,14 @@ func _populate_level_nodes() -> void:
 
 
 func _on_level_selected(level_id: int) -> void:
-	LevelManager.start_level(level_id)
+	if _active_popup and is_instance_valid(_active_popup):
+		_active_popup.queue_free()
+		_active_popup = null
+	
+	_active_popup = level_info_popup_scene.instantiate()
+	add_child(_active_popup)
+	_active_popup.setup_and_show(level_id)
+	_active_popup.popup_closed.connect(func(): _active_popup = null)
 
 
 ## Smoothly scroll the view to center on the player's current unlocked level.

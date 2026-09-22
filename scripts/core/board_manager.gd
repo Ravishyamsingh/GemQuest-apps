@@ -151,8 +151,8 @@ func setup_board(data: Dictionary) -> void:
 		column_array.resize(rows)
 		grid.append(column_array)
 	
-	# Fill the board ensuring no initial matches
-	_fill_board_no_matches()
+	# Fill the board ensuring no initial matches and at least one valid move
+	_fill_board_guaranteed_playable()
 	
 	# Initialise game systems
 	score_manager_node.reset()
@@ -192,6 +192,25 @@ func _draw() -> void:
 
 
 ## ===== BOARD FILL =====
+
+## Fill the board ensuring no initial matches of 3+ and that at least one valid move exists.
+func _fill_board_guaranteed_playable() -> void:
+	var attempts := 0
+	while attempts < 30:
+		attempts += 1
+		_clear_board()
+		
+		# Re-initialise empty grid columns
+		grid.clear()
+		for col in columns:
+			var column_array: Array = []
+			column_array.resize(rows)
+			grid.append(column_array)
+		
+		_fill_board_no_matches()
+		if has_valid_moves():
+			return
+
 
 ## Fill the board ensuring no initial matches of 3+.
 func _fill_board_no_matches() -> void:
@@ -552,8 +571,18 @@ func _grid_swap(col_a: int, row_a: int, col_b: int, row_b: int) -> void:
 	grid[col_b][row_b] = temp
 
 
-## Shuffle the board if no valid moves exist.
+## Shuffle the board if no valid moves exist, guaranteeing no starting matches and >= 1 valid move.
 func shuffle_board() -> void:
+	# Spawn visual announcement
+	if floating_text_scene != null:
+		var center_pos := board_origin + Vector2(columns * cell_size * 0.5, rows * cell_size * 0.45)
+		var ft = floating_text_scene.instantiate()
+		add_child(ft)
+		ft.setup("No Moves! Shuffling...", center_pos)
+	
+	if AudioManager:
+		AudioManager.play_sfx_by_name("swap")
+	
 	# Collect all pieces
 	var all_pieces: Array = []
 	for col in columns:
@@ -562,19 +591,63 @@ func shuffle_board() -> void:
 				all_pieces.append(grid[col][row])
 				grid[col][row] = null
 	
-	# Shuffle
-	all_pieces.shuffle()
+	var success := false
+	var attempts := 0
 	
-	# Re-place
-	var idx := 0
+	while not success and attempts < 100:
+		attempts += 1
+		all_pieces.shuffle()
+		
+		# Place into grid
+		var idx := 0
+		for col in columns:
+			for row in rows:
+				grid[col][row] = all_pieces[idx]
+				idx += 1
+		
+		# Check invariants: 0 immediate matches and at least 1 valid move
+		if _find_matches().is_empty() and has_valid_moves():
+			success = true
+			break
+	
+	# If permutation failed, safely reassign piece types
+	if not success:
+		var available := _get_available_pieces()
+		var p_idx := 0
+		for col in columns:
+			for row in rows:
+				var piece: Piece = all_pieces[p_idx]
+				p_idx += 1
+				
+				var valid_pieces := available.duplicate()
+				if col >= 2:
+					var p1: Piece = grid[col - 1][row]
+					var p2: Piece = grid[col - 2][row]
+					if p1 and p2 and p1.piece_type == p2.piece_type:
+						valid_pieces = valid_pieces.filter(func(pd): return pd.piece_id != p1.piece_type)
+				if row >= 2:
+					var p1: Piece = grid[col][row - 1]
+					var p2: Piece = grid[col][row - 2]
+					if p1 and p2 and p1.piece_type == p2.piece_type:
+						valid_pieces = valid_pieces.filter(func(pd): return pd.piece_id != p1.piece_type)
+				if valid_pieces.is_empty():
+					valid_pieces = available.duplicate()
+				
+				var chosen: PieceData = valid_pieces[randi() % valid_pieces.size()]
+				piece.setup(chosen, Vector2i(col, row), cell_size)
+				grid[col][row] = piece
+	
+	# Animate all pieces with scale pop & slide to new grid locations
 	for col in columns:
 		for row in rows:
-			if idx < all_pieces.size():
-				var piece: Piece = all_pieces[idx]
-				grid[col][row] = piece
+			var piece: Piece = grid[col][row]
+			if piece:
 				piece.grid_position = Vector2i(col, row)
-				piece.animate_move_to(_grid_to_world(col, row), 0.3)
-				idx += 1
+				var target := _grid_to_world(col, row)
+				var tween := create_tween()
+				tween.tween_property(piece, "scale", Vector2(0.5, 0.5), 0.1)
+				tween.tween_property(piece, "position", target, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				tween.tween_property(piece, "scale", Vector2.ONE, 0.15)
 	
 	EventBus.board_shuffled.emit()
 

@@ -117,6 +117,68 @@ def test_save_data_schema():
     print("  [PASS] SaveData serialization & deserialization validated!")
 
 
+def test_deadlock_and_shuffle():
+    print("\nRunning Deadlock & Valid Move Detection Tests...")
+    
+    def find_matches(grid):
+        matches = []
+        # Horizontal
+        for r in range(8):
+            c = 0
+            while c < 8:
+                t = grid[c][r]
+                start_c = c
+                while c < 8 and grid[c][r] == t:
+                    c += 1
+                if c - start_c >= 3:
+                    matches.append([(col, r) for col in range(start_c, c)])
+        # Vertical
+        for c in range(8):
+            r = 0
+            while r < 8:
+                t = grid[c][r]
+                start_r = r
+                while r < 8 and grid[c][r] == t:
+                    r += 1
+                if r - start_r >= 3:
+                    matches.append([(c, row) for row in range(start_r, r)])
+        return matches
+
+    def has_valid_moves(grid):
+        for c in range(8):
+            for r in range(8):
+                # Try swap right
+                if c < 7:
+                    grid[c][r], grid[c+1][r] = grid[c+1][r], grid[c][r]
+                    if len(find_matches(grid)) > 0:
+                        grid[c][r], grid[c+1][r] = grid[c+1][r], grid[c][r]
+                        return True
+                    grid[c][r], grid[c+1][r] = grid[c+1][r], grid[c][r]
+                # Try swap down
+                if r < 7:
+                    grid[c][r], grid[c][r+1] = grid[c][r+1], grid[c][r]
+                    if len(find_matches(grid)) > 0:
+                        grid[c][r], grid[c][r+1] = grid[c][r+1], grid[c][r]
+                        return True
+                    grid[c][r], grid[c][r+1] = grid[c][r+1], grid[c][r]
+        return False
+
+    # 1. Grid with a valid horizontal swap
+    test_grid = [[f"type_{(c*3+r)%6}" for r in range(8)] for c in range(8)]
+    test_grid[0][0] = "ruby"
+    test_grid[1][0] = "ruby"
+    test_grid[3][0] = "ruby"
+    test_grid[2][0] = "sapphire"
+    assert has_valid_moves(test_grid) == True
+    print("  [PASS] has_valid_moves() accurately detects available matches")
+
+    # 2. Grid with strictly NO valid moves (all distinct pieces)
+    deadlock_grid = [[f"unique_{c}_{r}" for r in range(8)] for c in range(8)]
+    assert len(find_matches(deadlock_grid)) == 0
+    assert has_valid_moves(deadlock_grid) == False
+    print("  [PASS] has_valid_moves() accurately identifies deadlock boards")
+
+
 def main():
     print("=" * 60)
     print("  GemQuest Match-3 Test Suite Verification")
@@ -125,6 +187,7 @@ def main():
     test_level_json_files()
     test_scoring_rules()
     test_save_data_schema()
+    test_deadlock_and_shuffle()
     print("\n" + "=" * 60)
     print("  ALL TESTS PASSED SUCCESSFULLY! (100% Pass Rate)")
     print("=" * 60)

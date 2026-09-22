@@ -226,6 +226,60 @@ def gen_bgm_ambient():
         samples.append(val * pad_env * 0.6)
     return samples
 
+# 11. Menu Background Music (cheerful, sparkling casual puzzle theme ~ 8 seconds)
+def gen_bgm_menu():
+    dur = 8.0
+    num_samples = int(SAMPLE_RATE * dur)
+    samples = []
+    # Upbeat chord progression: C -> G -> Am -> F (2.0s per chord)
+    chords = [
+        [261.63, 329.63, 392.00, 523.25], # C major (C4, E4, G4, C5)
+        [196.00, 246.94, 293.66, 392.00], # G major (G3, B3, D4, G4)
+        [220.00, 261.63, 329.63, 440.00], # A minor (A3, C4, E4, A4)
+        [174.61, 220.00, 261.63, 349.23], # F major (F3, A3, C4, F4)
+    ]
+    # Playful music-box melodic motifs per chord
+    melody_patterns = [
+        [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25, 659.25], # C motif
+        [392.00, 493.88, 587.33, 783.99, 587.33, 493.88, 392.00, 493.88],  # G motif
+        [440.00, 523.25, 659.25, 880.00, 659.25, 523.25, 440.00, 523.25],  # Am motif
+        [349.23, 440.00, 523.25, 698.46, 523.25, 440.00, 392.00, 440.00],  # F motif
+    ]
+    
+    for i in range(num_samples):
+        t = i / SAMPLE_RATE
+        chord_idx = int(t / 2.0) % 4
+        chord_t = t % 2.0
+        current_chord = chords[chord_idx]
+        current_melody = melody_patterns[chord_idx]
+        
+        val = 0.0
+        # 1. Warm background pad
+        pad_env = math.sin(math.pi * (chord_t / 2.0))
+        for f in current_chord:
+            val += math.sin(2 * math.pi * f * t) * 0.05
+            val += math.sin(2 * math.pi * (f * 0.5) * t) * 0.03 # Gentle bass sub
+        
+        # 2. Sparkling bell / music box arpeggio (8 notes per 2-second chord = 0.25s per note)
+        step_idx = int(chord_t / 0.25) % len(current_melody)
+        step_t = chord_t % 0.25
+        note_freq = current_melody[step_idx]
+        bell_env = math.exp(-step_t * 14.0)
+        # Bell tone (fundamental + sparkle harmonic)
+        bell_val = (math.sin(2 * math.pi * note_freq * t) * 0.14 +
+                    math.sin(2 * math.pi * note_freq * 2.0 * t) * 0.05 +
+                    math.sin(2 * math.pi * note_freq * 3.0 * t) * 0.02) * bell_env
+        val += bell_val
+        
+        # 3. Subtle marimba bounce on eighth notes
+        bounce_t = chord_t % 0.5
+        bounce_env = math.exp(-bounce_t * 20.0)
+        root_f = current_chord[0]
+        val += math.sin(2 * math.pi * root_f * t) * 0.08 * bounce_env
+        
+        samples.append(val * 0.75)
+    return samples
+
 def main():
     base_sfx = "assets/audio/sfx"
     base_music = "assets/audio/music"
@@ -241,6 +295,7 @@ def main():
     create_wav(f"{base_sfx}/level_lose.wav", gen_level_lose())
     
     create_wav(f"{base_music}/bgm_gameplay.wav", gen_bgm_ambient())
+    create_wav(f"{base_music}/bgm_menu.wav", gen_bgm_menu())
     print("All audio files synthesized successfully!")
 
 if __name__ == "__main__":
