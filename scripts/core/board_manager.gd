@@ -37,8 +37,12 @@ var objective_tracker_node: Node = null
 const ScoreManagerScript = preload("res://scripts/core/score_manager.gd")
 const MoveCounterScript = preload("res://scripts/core/move_counter.gd")
 const ObjectiveTrackerScript = preload("res://scripts/core/objective_tracker.gd")
+const PiecePoolScript = preload("res://scripts/core/piece_pool.gd")
 var floating_text_scene: PackedScene = preload("res://scenes/gameplay/floating_text.tscn")
 var particle_burst_scene: PackedScene = preload("res://scenes/gameplay/gem_particle_burst.tscn")
+
+## Reuses piece nodes through swaps, cascades, and refills.
+var piece_pool: Node = null
 
 
 func _ready() -> void:
@@ -62,6 +66,11 @@ func _ready() -> void:
 	objective_tracker_node.name = "ObjectiveTracker"
 	objective_tracker_node.set_script(ObjectiveTrackerScript)
 	add_child(objective_tracker_node)
+
+	piece_pool = Node.new()
+	piece_pool.name = "PiecePool"
+	piece_pool.set_script(PiecePoolScript)
+	add_child(piece_pool)
 	
 	# Listen for game-over conditions
 	EventBus.objective_complete.connect(_on_objective_complete)
@@ -139,6 +148,8 @@ func setup_board(data: Dictionary) -> void:
 	
 	# Clear any existing pieces
 	_clear_board()
+	if piece_pool:
+		piece_pool.init_pool(self, columns * rows + 8)
 	
 	# Initialise grid array
 	grid.clear()
@@ -243,13 +254,17 @@ func _fill_board_no_matches() -> void:
 
 ## Spawn a single piece at a grid position.
 func _spawn_piece(col: int, row: int, data: PieceData, animate: bool = true) -> Piece:
-	var piece: Piece = piece_scene.instantiate()
-	add_child(piece)
+	var piece: Piece
+	if piece_pool:
+		piece = piece_pool.acquire(data, Vector2i(col, row), cell_size)
+	else:
+		piece = piece_scene.instantiate()
+		add_child(piece)
+		piece.setup(data, Vector2i(col, row), cell_size)
 	
 	# Position the piece
 	var world_pos := _grid_to_world(col, row)
 	piece.position = world_pos
-	piece.setup(data, Vector2i(col, row), cell_size)
 	
 	# Store in grid
 	grid[col][row] = piece
@@ -262,6 +277,10 @@ func _spawn_piece(col: int, row: int, data: PieceData, animate: bool = true) -> 
 
 ## Clear all pieces from the board.
 func _clear_board() -> void:
+	if piece_pool:
+		piece_pool.release_all()
+		grid.clear()
+		return
 	for child in get_children():
 		if child is Piece:
 			child.queue_free()
@@ -336,48 +355,40 @@ func _on_swap_requested(from_pos: Vector2i, to_pos: Vector2i) -> void:
 	# Deselect
 	piece_a.set_selected(false)
 	selected_pos = Vector2i(-1, -1)
-	
-	# Perform the swap
+
+	# Validate against the logical grid first. This keeps a rejected gesture
+	# responsive and avoids committing to a full swap animation unnecessarily.
+	var matches := _preview_swap_matches(from_pos, to_pos)
 	state = BoardState.SWAPPING
-	await _animate_swap(piece_a, piece_b, from_pos, to_pos)
-	
-	# Swap in grid data
-	grid[from_pos.x][from_pos.y] = piece_b
-	grid[to_pos.x][to_pos.y] = piece_a
-	piece_a.grid_position = to_pos
-	piece_b.grid_position = from_pos
-	
-	# Check if swap produces a match
-	var matches := _find_matches()
-	
 	if matches.is_empty():
-		# Invalid swap — swap back
-		await _animate_swap(piece_a, piece_b, to_pos, from_pos)
-		grid[from_pos.x][from_pos.y] = piece_a
-		grid[to_pos.x][to_pos.y] = piece_b
-		piece_a.grid_position = from_pos
-		piece_b.grid_position = to_pos
+		await _animate_invalid_swap(piece_a, piece_b, from_pos, to_pos)
 		EventBus.swap_rejected.emit(from_pos, to_pos)
 		state = BoardState.IDLE
-	else:
-		# Valid swap — consume a move
-		EventBus.swap_completed.emit(from_pos, to_pos)
-		move_counter_node.use_move()
-		
-		# Process matches and cascades
-		state = BoardState.MATCHING
-		await _process_matches_and_cascades(matches)
-		
-		# Check end conditions
-		if state == BoardState.WIN or state == BoardState.LOSE:
-			return
-		
-		# Check for no valid moves and shuffle if needed
-		if not has_valid_moves():
-			shuffle_board()
-			await get_tree().create_timer(0.35).timeout
-		
-		state = BoardState.IDLE
+		return
+
+	# Animate an accepted swap, then commit the grid state atomically before
+	# entering match/cascade resolution.
+	await _animate_swap(piece_a, piece_b, from_pos, to_pos)
+	_grid_swap(from_pos.x, from_pos.y, to_pos.x, to_pos.y)
+	piece_a.grid_position = to_pos
+	piece_b.grid_position = from_pos
+	EventBus.swap_completed.emit(from_pos, to_pos)
+	move_counter_node.use_move()
+
+	state = BoardState.MATCHING
+	await _process_matches_and_cascades(matches)
+
+	if state == BoardState.WIN or state == BoardState.LOSE:
+		return
+
+	# Deadlocks are resolved only after the board is stable, so input remains
+	# locked for the complete shuffle animation as well.
+	if not has_valid_moves():
+		state = BoardState.CASCADING
+		shuffle_board()
+		await get_tree().create_timer(0.35).timeout
+
+	state = BoardState.IDLE
 
 
 ## ===== SWAP ANIMATION =====
@@ -385,11 +396,31 @@ func _on_swap_requested(from_pos: Vector2i, to_pos: Vector2i) -> void:
 func _animate_swap(piece_a: Piece, piece_b: Piece, pos_a: Vector2i, pos_b: Vector2i) -> void:
 	var target_a := _grid_to_world(pos_b.x, pos_b.y)
 	var target_b := _grid_to_world(pos_a.x, pos_a.y)
-	
-	piece_a.animate_move_to(target_a, 0.15)
-	piece_b.animate_move_to(target_b, 0.15)
-	
-	await get_tree().create_timer(0.18).timeout
+	var tween_a := piece_a.animate_move_to(target_a, 0.15)
+	var tween_b := piece_b.animate_move_to(target_b, 0.15)
+	await tween_a.finished
+	await tween_b.finished
+
+
+func _animate_invalid_swap(piece_a: Piece, piece_b: Piece, pos_a: Vector2i, pos_b: Vector2i) -> void:
+	var target_a := _grid_to_world(pos_b.x, pos_b.y)
+	var target_b := _grid_to_world(pos_a.x, pos_a.y)
+	# A short nudge communicates the rejected move without spending the full
+	# accepted-swap duration, then returns both nodes to their exact cells.
+	piece_a.animate_move_to(piece_a.position.lerp(target_a, 0.38), 0.08)
+	piece_b.animate_move_to(piece_b.position.lerp(target_b, 0.38), 0.08)
+	await get_tree().create_timer(0.09).timeout
+	var tween_a := piece_a.animate_move_to(_grid_to_world(pos_a.x, pos_a.y), 0.12)
+	var tween_b := piece_b.animate_move_to(_grid_to_world(pos_b.x, pos_b.y), 0.12)
+	await tween_a.finished
+	await tween_b.finished
+
+
+func _preview_swap_matches(from_pos: Vector2i, to_pos: Vector2i) -> Array:
+	_grid_swap(from_pos.x, from_pos.y, to_pos.x, to_pos.y)
+	var matches := _find_matches()
+	_grid_swap(from_pos.x, from_pos.y, to_pos.x, to_pos.y)
+	return matches
 
 
 ## ===== MATCH DETECTION =====
@@ -495,7 +526,10 @@ func _remove_matched_pieces(positions: Array) -> void:
 	for pos in positions:
 		var piece = grid[pos.x][pos.y]
 		if piece != null:
-			piece.queue_free()
+			if piece_pool:
+				piece_pool.release(piece)
+			else:
+				piece.queue_free()
 			grid[pos.x][pos.y] = null
 
 

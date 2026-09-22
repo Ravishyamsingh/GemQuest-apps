@@ -35,12 +35,30 @@ vertical_scroll_mode = 2
 custom_minimum_size = Vector2(720, 2600)
 layout_mode = 2
 
+[node name="PathGlow" type="Line2D" parent="ScrollContainer/MapContent"]
+z_index = -2
+width = 24.0
+default_color = Color(0.95, 0.64, 0.2, 0.12)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
 [node name="PathLine" type="Line2D" parent="ScrollContainer/MapContent"]
+z_index = -1
 width = 16.0
 default_color = Color(1, 0.85, 0.3, 0.65)
 joint_mode = 2
 begin_cap_mode = 2
 end_cap_mode = 2
+
+[node name="Decorations" type="Control" parent="ScrollContainer/MapContent"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="NodesContainer" type="Control" parent="ScrollContainer/MapContent"]
 layout_mode = 1

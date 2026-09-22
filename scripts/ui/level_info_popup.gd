@@ -33,6 +33,17 @@ func _ready() -> void:
 func setup_and_show(level_id: int) -> void:
 	current_level_id = level_id
 	_is_closing = false
+	# Keep the pre-level card usable on narrow portrait devices too.
+	var viewport_size := get_viewport_rect().size
+	var card_width := minf(500.0, maxf(280.0, viewport_size.x - 28.0))
+	var card_height := minf(520.0, maxf(440.0, viewport_size.y - 32.0))
+	if _card_panel:
+		_card_panel.custom_minimum_size = Vector2(card_width, card_height)
+		_card_panel.offset_left = -card_width * 0.5
+		_card_panel.offset_right = card_width * 0.5
+		_card_panel.offset_top = -card_height * 0.5
+		_card_panel.offset_bottom = card_height * 0.5
+		_card_panel.pivot_offset = Vector2(card_width * 0.5, card_height * 0.5)
 	
 	# Fetch level data
 	var data: Dictionary = LevelManager.get_level_data(level_id)
@@ -109,7 +120,18 @@ func _on_play_pressed() -> void:
 	
 	if AudioManager:
 		AudioManager.play_sfx_by_name("click")
-	
+	if _play_btn:
+		var press_tween := create_tween()
+		press_tween.tween_property(_play_btn, "scale", Vector2(0.94, 0.94), 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		press_tween.tween_property(_play_btn, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		press_tween.tween_callback(_start_selected_level)
+	else:
+		_start_selected_level()
+
+
+func _start_selected_level() -> void:
 	play_requested.emit(current_level_id)
+	# Main's fade transition now covers the final modal close frame, keeping the
+	# level start from feeling like an instantaneous scene replacement.
 	LevelManager.start_level(current_level_id)
 	queue_free()

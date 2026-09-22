@@ -27,6 +27,7 @@ var is_moving: bool = false
 
 ## Whether this piece is currently selected by the player.
 var is_selected: bool = false
+var _motion_tween: Tween = null
 
 ## The sprite node displaying this piece.
 @onready var _sprite: Sprite2D = $Sprite2D
@@ -42,6 +43,13 @@ func _ready() -> void:
 
 ## Initialise the piece with type data and grid position.
 func setup(data: PieceData, pos: Vector2i, cell_size: float) -> void:
+	if _motion_tween and _motion_tween.is_valid():
+		_motion_tween.kill()
+	_motion_tween = null
+	modulate = Color.WHITE
+	scale = Vector2.ONE
+	is_moving = false
+	is_selected = false
 	piece_data = data
 	piece_type = data.piece_id
 	grid_position = pos
@@ -89,27 +97,38 @@ func set_selected(selected: bool) -> void:
 
 
 ## Animate moving to a world position.
-func animate_move_to(target_pos: Vector2, duration: float = 0.15) -> void:
+func animate_move_to(target_pos: Vector2, duration: float = 0.15) -> Tween:
+	if _motion_tween and _motion_tween.is_valid():
+		_motion_tween.kill()
 	is_moving = true
-	var tween := create_tween()
-	tween.tween_property(self, "position", target_pos, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	tween.tween_callback(func(): is_moving = false)
+	_motion_tween = create_tween()
+	_motion_tween.tween_property(self, "position", target_pos, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	_motion_tween.tween_callback(func():
+		is_moving = false
+		_motion_tween = null
+	)
+	return _motion_tween
 
 
 ## Animate swap rejection (wobble back).
 func animate_swap_reject(original_pos: Vector2, duration: float = 0.1) -> void:
+	if _motion_tween and _motion_tween.is_valid():
+		_motion_tween.kill()
 	is_moving = true
-	var tween := create_tween()
-	tween.tween_property(self, "position", position + (position - original_pos).normalized() * 10, duration * 0.5)
-	tween.tween_property(self, "position", original_pos, duration * 0.5)
-	tween.tween_callback(func():
+	_motion_tween = create_tween()
+	_motion_tween.tween_property(self, "position", position + (position - original_pos).normalized() * 10, duration * 0.5)
+	_motion_tween.tween_property(self, "position", original_pos, duration * 0.5)
+	_motion_tween.tween_callback(func():
 		is_moving = false
+		_motion_tween = null
 		position = original_pos
 	)
 
 
 ## Animate match pop (scale down and fade).
 func animate_pop(duration: float = 0.2) -> void:
+	if _motion_tween and _motion_tween.is_valid():
+		_motion_tween.kill()
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(self, "scale", Vector2(1.3, 1.3), duration * 0.3)
@@ -120,10 +139,35 @@ func animate_pop(duration: float = 0.2) -> void:
 
 ## Animate spawning in (fade + drop).
 func animate_spawn(from_y_offset: float = -80.0, duration: float = 0.2) -> void:
+	if _motion_tween and _motion_tween.is_valid():
+		_motion_tween.kill()
 	var target_pos := position
 	position.y += from_y_offset
 	modulate.a = 0.0
-	var tween := create_tween()
+	_motion_tween = create_tween()
+	var tween := _motion_tween
 	tween.set_parallel(true)
 	tween.tween_property(self, "position", target_pos, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BOUNCE)
 	tween.tween_property(self, "modulate:a", 1.0, duration * 0.5)
+	tween.set_parallel(false)
+	tween.tween_callback(func():
+		is_moving = false
+		_motion_tween = null
+	)
+	is_moving = true
+
+
+## Return a piece to its pool-safe visual state without freeing the node.
+func reset_for_pool() -> void:
+	if _motion_tween and _motion_tween.is_valid():
+		_motion_tween.kill()
+	_motion_tween = null
+	visible = false
+	position = Vector2(-1000.0, -1000.0)
+	modulate = Color.WHITE
+	scale = Vector2.ONE
+	is_moving = false
+	is_matched = false
+	is_selected = false
+	if _highlight:
+		_highlight.visible = false

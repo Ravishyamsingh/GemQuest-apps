@@ -13,6 +13,7 @@ const SCREENS := {
 
 ## Currently displayed screen node
 var _current_screen: Node = null
+var _is_transitioning := false
 
 ## Transition overlay for fade effects
 @onready var _transition_overlay: ColorRect = $TransitionOverlay
@@ -34,10 +35,13 @@ func _on_screen_change_requested(screen_name: String) -> void:
 
 ## Simple fade transition between screens.
 func _transition_to_screen(screen_name: String) -> void:
+	if _is_transitioning:
+		return
+	_is_transitioning = true
 	# Fade out
 	if _transition_overlay:
 		var tween := create_tween()
-		tween.tween_property(_transition_overlay, "color:a", 1.0, 0.15)
+		tween.tween_property(_transition_overlay, "color:a", 1.0, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		await tween.finished
 
 	# Swap screen
@@ -46,7 +50,9 @@ func _transition_to_screen(screen_name: String) -> void:
 	# Fade in
 	if _transition_overlay:
 		var tween := create_tween()
-		tween.tween_property(_transition_overlay, "color:a", 0.0, 0.15)
+		tween.tween_property(_transition_overlay, "color:a", 0.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		await tween.finished
+	_is_transitioning = false
 
 
 ## Instantiate and display a screen, removing the old one.
