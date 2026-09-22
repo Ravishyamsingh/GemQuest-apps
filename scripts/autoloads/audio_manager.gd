@@ -1,37 +1,93 @@
 # audio_manager.gd — Handles music and SFX playback.
 # Provides simple play/stop API; routes audio through separate buses
-# so music and SFX volumes can be controlled independently.
+# and hooks directly into EventBus signals for seamless game audio.
 extends Node
 
-## Audio bus names (must match the buses configured in Godot's Audio tab).
-const MUSIC_BUS := "Music"
-const SFX_BUS := "SFX"
+## Audio bus names
+const MUSIC_BUS := "Master"
+const SFX_BUS := "Master"
 
 ## Internal players
 var _music_player: AudioStreamPlayer = null
 var _sfx_players: Array[AudioStreamPlayer] = []
-const MAX_SFX_PLAYERS := 8  # Pool of SFX players for overlapping sounds
+const MAX_SFX_PLAYERS := 8
 
-## Cached SFX streams (preloaded)
+## Cached SFX streams
 var _sfx_cache: Dictionary = {}
 
 ## State
 var music_enabled: bool = true
 var sfx_enabled: bool = true
 
+## Asset paths
+const SOUND_PATHS := {
+	"select": "res://assets/audio/sfx/gem_select.wav",
+	"swap": "res://assets/audio/sfx/gem_swap.wav",
+	"invalid": "res://assets/audio/sfx/gem_invalid.wav",
+	"match": "res://assets/audio/sfx/gem_match.wav",
+	"combo": "res://assets/audio/sfx/gem_combo.wav",
+	"click": "res://assets/audio/sfx/button_click.wav",
+	"star": "res://assets/audio/sfx/star_award.wav",
+	"win": "res://assets/audio/sfx/level_win.wav",
+	"lose": "res://assets/audio/sfx/level_lose.wav",
+}
+const BGM_PATH := "res://assets/audio/music/bgm_gameplay.wav"
+
 
 func _ready() -> void:
 	# Create music player
 	_music_player = AudioStreamPlayer.new()
-	_music_player.bus = &"Master"  # Will use Music bus once configured
+	_music_player.bus = MUSIC_BUS
 	add_child(_music_player)
 
 	# Create SFX player pool
 	for i in MAX_SFX_PLAYERS:
 		var player := AudioStreamPlayer.new()
-		player.bus = &"Master"  # Will use SFX bus once configured
+		player.bus = SFX_BUS
 		add_child(player)
 		_sfx_players.append(player)
+
+	# Preload sounds
+	_load_sound_assets()
+
+	# Connect EventBus signals
+	_connect_events()
+
+
+func _load_sound_assets() -> void:
+	for sound_key in SOUND_PATHS:
+		var path: String = SOUND_PATHS[sound_key]
+		if ResourceLoader.exists(path):
+			_sfx_cache[sound_key] = load(path)
+
+
+func _connect_events() -> void:
+	if not Engine.has_singleton("EventBus") and not get_node_or_null("/root/EventBus"):
+		return
+	
+	EventBus.piece_selected.connect(func(_pos: Vector2i): play_sfx_by_name("select"))
+	EventBus.swap_completed.connect(func(_f: Vector2i, _t: Vector2i): play_sfx_by_name("swap"))
+	EventBus.swap_rejected.connect(func(_f: Vector2i, _t: Vector2i): play_sfx_by_name("invalid"))
+	EventBus.match_found.connect(_on_match_found)
+	EventBus.cascade_step.connect(_on_cascade_step)
+	EventBus.level_won.connect(func(): play_sfx_by_name("win"))
+	EventBus.level_lost.connect(func(): play_sfx_by_name("lose"))
+	EventBus.level_started.connect(_on_level_started)
+
+
+func _on_level_started(_level_id: int) -> void:
+	if ResourceLoader.exists(BGM_PATH):
+		var bgm: AudioStream = load(BGM_PATH)
+		play_music(bgm)
+
+
+func _on_match_found(_matches: Array) -> void:
+	play_sfx_by_name("match")
+
+
+func _on_cascade_step(depth: int) -> void:
+	if depth > 1:
+		play_sfx_by_name("combo")
 
 
 ## Play background music (loops).
@@ -56,7 +112,15 @@ func stop_music(fade_out: float = 0.5) -> void:
 		_music_player.stop()
 
 
-## Play a one-shot SFX.
+## Play a one-shot SFX by name key.
+func play_sfx_by_name(sound_name: String) -> void:
+	if not sfx_enabled:
+		return
+	if _sfx_cache.has(sound_name):
+		play_sfx(_sfx_cache[sound_name])
+
+
+## Play a one-shot SFX stream.
 func play_sfx(stream: AudioStream) -> void:
 	if not sfx_enabled or stream == null:
 		return
@@ -65,7 +129,6 @@ func play_sfx(stream: AudioStream) -> void:
 			player.stream = stream
 			player.play()
 			return
-	# All players busy — skip this SFX (graceful degradation)
 
 
 ## Toggle music on/off.
@@ -73,6 +136,8 @@ func set_music_enabled(enabled: bool) -> void:
 	music_enabled = enabled
 	if not enabled:
 		stop_music(0.0)
+	elif not _music_player.playing and ResourceLoader.exists(BGM_PATH):
+		play_music(load(BGM_PATH))
 
 
 ## Toggle SFX on/off.

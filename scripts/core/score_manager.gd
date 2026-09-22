@@ -20,15 +20,19 @@ func reset() -> void:
 	EventBus.score_changed.emit(current_score, 0)
 
 
-## Calculate score for a set of matches at a given cascade depth.
-## Returns the total points added.
-func add_match_score(matches: Array, cascade_depth: int) -> int:
+## Calculate potential score without modifying current score.
+func calculate_matches_score(matches: Array, cascade_depth: int) -> int:
 	var base_score := 0
 	for match_result in matches:
 		base_score += _calculate_match_points(match_result.length)
-
 	var multiplier := maxi(cascade_depth, 1)
-	var total := base_score * multiplier
+	return base_score * multiplier
+
+
+## Calculate score for a set of matches at a given cascade depth.
+## Returns the total points added.
+func add_match_score(matches: Array, cascade_depth: int) -> int:
+	var total := calculate_matches_score(matches, cascade_depth)
 	current_score += total
 	EventBus.score_changed.emit(current_score, total)
 	return total

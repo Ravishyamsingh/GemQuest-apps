@@ -36,10 +36,12 @@ var score_manager_node: Node = null
 var move_counter_node: Node = null
 var objective_tracker_node: Node = null
 
-## Preloaded scripts for child systems
+## Preloaded scripts and scenes for effects and child systems
 const ScoreManagerScript = preload("res://scripts/core/score_manager.gd")
 const MoveCounterScript = preload("res://scripts/core/move_counter.gd")
 const ObjectiveTrackerScript = preload("res://scripts/core/objective_tracker.gd")
+var floating_text_scene: PackedScene = preload("res://scenes/gameplay/floating_text.tscn")
+var particle_burst_scene: PackedScene = preload("res://scenes/gameplay/gem_particle_burst.tscn")
 
 
 func _ready() -> void:
@@ -89,6 +91,9 @@ func _create_piece_definitions() -> void:
 		pd.piece_id = def[&"id"]
 		pd.display_name = def["name"]
 		pd.colour = def["color"]
+		var tex_path := "res://assets/graphics/pieces/gem_" + String(def[&"id"]) + ".png"
+		if ResourceLoader.exists(tex_path):
+			pd.texture = load(tex_path)
 		piece_definitions.append(pd)
 
 
@@ -396,8 +401,21 @@ func _process_matches_and_cascades(initial_matches: Array) -> void:
 		# Emit match found
 		EventBus.match_found.emit(matches)
 		
-		# Calculate score for this cascade step
+		# Calculate score for this cascade step and spawn floating texts
+		var step_score := score_manager_node.calculate_matches_score(matches, cascade_depth) if score_manager_node.has_method("calculate_matches_score") else 0
 		score_manager_node.add_match_score(matches, cascade_depth)
+		
+		# Spawn floating score text at center of first match
+		if not matches.is_empty() and floating_text_scene != null:
+			var first_match = matches[0]
+			if not first_match.positions.is_empty():
+				var center_pos := grid_to_world(first_match.positions[0])
+				var ft = floating_text_scene.instantiate()
+				add_child(ft)
+				var text_label := "+%d" % (first_match.positions.size() * 10 * cascade_depth)
+				if cascade_depth > 1:
+					text_label += " (x%d)" % cascade_depth
+				ft.setup(text_label, center_pos)
 		
 		# Collect all positions to remove
 		var positions_to_remove: Dictionary = {}  # Used as a set
@@ -441,12 +459,17 @@ func _process_matches_and_cascades(initial_matches: Array) -> void:
 		EventBus.level_lost.emit()
 
 
-## Remove matched pieces with pop animation.
+## Remove matched pieces with pop animation and particles.
 func _remove_matched_pieces(positions: Array) -> void:
 	for pos in positions:
 		var piece = grid[pos.x][pos.y]
 		if piece != null:
 			piece.animate_pop(0.2)
+			if particle_burst_scene != null:
+				var burst = particle_burst_scene.instantiate()
+				add_child(burst)
+				var color: Color = piece.piece_data.colour if piece.piece_data else Color.WHITE
+				burst.setup(grid_to_world(pos), color)
 	
 	await get_tree().create_timer(0.25).timeout
 	

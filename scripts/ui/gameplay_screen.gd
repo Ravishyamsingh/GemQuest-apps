@@ -107,12 +107,20 @@ func _on_level_won() -> void:
 	input_handler.input_enabled = false
 	var level_id: int = level_data_cache.get("level_id", 1)
 	var score: int = board_manager.score_manager_node.current_score
+	var target_score: int = level_data_cache.get("target_score", 500)
 	
-	# Save progress
-	SaveManager.complete_level(level_id, score)
+	# Calculate stars (1-3)
+	var stars := 1
+	if score >= int(target_score * 1.8):
+		stars = 3
+	elif score >= int(target_score * 1.35):
+		stars = 2
+	
+	# Save progress with stars
+	SaveManager.complete_level(level_id, score, stars)
 	
 	# Show win overlay
-	_show_overlay("LEVEL COMPLETE!", "Score: %d" % score, true)
+	_show_overlay("VICTORY!", "Score: %d" % score, true, stars)
 
 
 func _on_level_lost() -> void:
@@ -120,7 +128,7 @@ func _on_level_lost() -> void:
 	var score: int = board_manager.score_manager_node.current_score
 	
 	# Show lose overlay
-	_show_overlay("OUT OF MOVES", "Score: %d\nTry again!" % score, false)
+	_show_overlay("OUT OF MOVES", "Score: %d\nTry again!" % score, false, 0)
 
 
 func _on_pause_pressed() -> void:
@@ -128,44 +136,77 @@ func _on_pause_pressed() -> void:
 
 
 ## Create and show a result overlay (win or lose).
-func _show_overlay(title_text: String, body_text: String, is_win: bool) -> void:
+func _show_overlay(title_text: String, body_text: String, is_win: bool, stars: int = 0) -> void:
 	# Dark background overlay
 	var overlay := ColorRect.new()
 	overlay.name = "ResultOverlay"
-	overlay.color = Color(0, 0, 0, 0.7)
+	overlay.color = Color(0.05, 0.03, 0.12, 0.85)
 	overlay.anchors_preset = Control.PRESET_FULL_RECT
 	overlay.anchor_right = 1.0
 	overlay.anchor_bottom = 1.0
 	add_child(overlay)
 	
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(480, 520)
+	panel.anchors_preset = Control.PRESET_CENTER
+	panel.anchor_left = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -240
+	panel.offset_top = -260
+	panel.offset_right = 240
+	panel.offset_bottom = 260
+	overlay.add_child(panel)
+
 	var vbox := VBoxContainer.new()
-	vbox.anchors_preset = Control.PRESET_CENTER
-	vbox.anchor_left = 0.5
-	vbox.anchor_top = 0.5
-	vbox.anchor_right = 0.5
-	vbox.anchor_bottom = 0.5
-	vbox.offset_left = -150
-	vbox.offset_top = -120
-	vbox.offset_right = 150
-	vbox.offset_bottom = 120
+	vbox.set("theme_override_constants/separation", 18)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.set("theme_override_constants/separation", 20)
-	overlay.add_child(vbox)
+	panel.add_child(vbox)
 	
 	var title := Label.new()
 	title.text = title_text
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.set("theme_override_font_sizes/font_size", 40)
+	title.set("theme_override_colors/font_color", Color(1.0, 0.85, 0.2) if is_win else Color(1.0, 0.35, 0.35))
 	vbox.add_child(title)
+	
+	# Stars display on victory
+	if is_win:
+		var stars_box := HBoxContainer.new()
+		stars_box.alignment = BoxContainer.ALIGNMENT_CENTER
+		stars_box.set("theme_override_constants/separation", 12)
+		vbox.add_child(stars_box)
+		
+		var star_fill = load("res://assets/graphics/ui/star_filled.png") if ResourceLoader.exists("res://assets/graphics/ui/star_filled.png") else null
+		var star_empty = load("res://assets/graphics/ui/star_empty.png") if ResourceLoader.exists("res://assets/graphics/ui/star_empty.png") else null
+		
+		for s in range(3):
+			var tr := TextureRect.new()
+			tr.custom_minimum_size = Vector2(48, 48)
+			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			tr.texture = star_fill if (s < stars) else star_empty
+			stars_box.add_child(tr)
+			
+			if s < stars:
+				tr.scale = Vector2.ZERO
+				tr.pivot_offset = Vector2(24, 24)
+				var tween := create_tween()
+				tween.tween_property(tr, "scale", Vector2(1.2, 1.2), 0.25).set_delay(0.3 + s * 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				tween.tween_property(tr, "scale", Vector2(1.0, 1.0), 0.1)
 	
 	var body := Label.new()
 	body.text = body_text
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.set("theme_override_font_sizes/font_size", 24)
 	vbox.add_child(body)
 	
 	if is_win:
 		var next_btn := Button.new()
-		next_btn.text = "Next Level"
-		next_btn.custom_minimum_size = Vector2(180, 50)
+		next_btn.text = "Next Level ▶"
+		next_btn.custom_minimum_size = Vector2(220, 56)
+		next_btn.set("theme_override_font_sizes/font_size", 22)
 		next_btn.pressed.connect(func():
 			var next_id: int = level_data_cache.get("level_id", 1) + 1
 			var next_data := LevelManager.get_level_data(next_id)
@@ -177,8 +218,9 @@ func _show_overlay(title_text: String, body_text: String, is_win: bool) -> void:
 		vbox.add_child(next_btn)
 	else:
 		var retry_btn := Button.new()
-		retry_btn.text = "Retry"
-		retry_btn.custom_minimum_size = Vector2(180, 50)
+		retry_btn.text = "Try Again ↺"
+		retry_btn.custom_minimum_size = Vector2(220, 56)
+		retry_btn.set("theme_override_font_sizes/font_size", 22)
 		retry_btn.pressed.connect(func():
 			var level_id: int = level_data_cache.get("level_id", 1)
 			LevelManager.start_level(level_id)
@@ -186,12 +228,16 @@ func _show_overlay(title_text: String, body_text: String, is_win: bool) -> void:
 		vbox.add_child(retry_btn)
 	
 	var map_btn := Button.new()
-	map_btn.text = "Level Map"
-	map_btn.custom_minimum_size = Vector2(180, 50)
+	map_btn.text = "Level Map 🗺"
+	map_btn.custom_minimum_size = Vector2(220, 56)
+	map_btn.set("theme_override_font_sizes/font_size", 22)
 	map_btn.pressed.connect(func(): GameManager.go_to_level_map())
 	vbox.add_child(map_btn)
 	
-	# Fade in
+	# Animate card entry
+	panel.scale = Vector2(0.8, 0.8)
+	panel.pivot_offset = Vector2(240, 260)
 	overlay.modulate.a = 0.0
-	var tween := create_tween()
-	tween.tween_property(overlay, "modulate:a", 1.0, 0.3)
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(overlay, "modulate:a", 1.0, 0.25)
+	tween.tween_property(panel, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

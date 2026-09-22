@@ -1,12 +1,39 @@
-# level_map_screen.gd — Displays the scrollable level map with level nodes.
-# For Phase 2 testing: shows a simple list of playable levels.
-# Full curved-path map will be built in Phase 8.
+# level_map_screen.gd — Curved path level saga map screen.
 extends Control
+
+const TOTAL_LEVELS := 20
+const MAP_WIDTH := 720.0
+const MAP_HEIGHT := 2600.0
+
+@onready var _scroll_container: ScrollContainer = $ScrollContainer
+@onready var _map_content: Control = $ScrollContainer/MapContent
+@onready var _path_line: Line2D = $ScrollContainer/MapContent/PathLine
+@onready var _nodes_container: Control = $ScrollContainer/MapContent/NodesContainer
+@onready var _back_btn: Button = $TopBar/BackButton
+@onready var _stars_label: Label = $TopBar/StarsLabel
+
+var level_node_scene: PackedScene = preload("res://scenes/ui/level_node.tscn")
+var _node_positions: Array[Vector2] = []
 
 
 func _ready() -> void:
-	$BackButton.pressed.connect(_on_back_pressed)
-	_build_level_list()
+	if _back_btn:
+		_back_btn.pressed.connect(_on_back_pressed)
+	
+	_update_header()
+	_generate_map_path()
+	_populate_level_nodes()
+	
+	# Defer auto-scrolling to ensure container layout has resolved
+	call_deferred("_scroll_to_current_level")
+
+
+func _update_header() -> void:
+	var total_stars := 0
+	for i in range(1, TOTAL_LEVELS + 1):
+		total_stars += SaveManager.get_level_stars(i)
+	if _stars_label:
+		_stars_label.text = "★ %d / %d" % [total_stars, TOTAL_LEVELS * 3]
 
 
 func _on_back_pressed() -> void:
@@ -14,40 +41,72 @@ func _on_back_pressed() -> void:
 	GameManager.change_screen("home")
 
 
-## Build a simple vertical list of level buttons for testing.
-func _build_level_list() -> void:
-	var container := $ScrollContainer/VBoxContainer
+## Generate the S-curve winding path coordinates for all 20 levels.
+func _generate_map_path() -> void:
+	_node_positions.clear()
 	
-	# Clear any existing children
-	for child in container.get_children():
+	# Levels go from Level 1 at bottom (Y ~ 2400) to Level 20 at top (Y ~ 200)
+	var bottom_y := MAP_HEIGHT - 200.0
+	var top_y := 200.0
+	var y_step := (bottom_y - top_y) / float(TOTAL_LEVELS - 1)
+	
+	for i in range(TOTAL_LEVELS):
+		var level_idx := i # 0 is Level 1, 19 is Level 20
+		var y := bottom_y - (level_idx * y_step)
+		
+		# Winding S-curve horizontal wave
+		var wave := sin(float(level_idx) * 0.9) # oscillates between -1 and 1
+		var x := (MAP_WIDTH * 0.5) + wave * 220.0
+		
+		_node_positions.append(Vector2(x, y))
+
+	# Setup the Line2D visual path
+	if _path_line:
+		_path_line.clear_points()
+		_path_line.width = 16.0
+		_path_line.default_color = Color(1.0, 0.85, 0.3, 0.65) # Warm gold glow
+		
+		# Sample smooth intermediate curve points using cubic interpolation
+		for i in range(_node_positions.size()):
+			_path_line.add_point(_node_positions[i])
+
+
+## Instantiate LevelNode scenes along the path.
+func _populate_level_nodes() -> void:
+	for child in _nodes_container.get_children():
 		child.queue_free()
-	
-	var total_levels := LevelManager.get_total_levels()
-	if total_levels == 0:
-		total_levels = 20  # Fallback
-	
-	for i in range(1, total_levels + 1):
-		var btn := Button.new()
-		btn.custom_minimum_size = Vector2(200, 50)
+
+	var current_lvl := SaveManager.get_current_level()
+
+	for i in range(TOTAL_LEVELS):
+		var level_id := i + 1
+		var pos := _node_positions[i]
 		
-		var is_unlocked := SaveManager.is_level_unlocked(i)
-		var is_completed := SaveManager.is_level_completed(i)
-		var is_current := (i == SaveManager.get_current_level())
+		var node: LevelNode = level_node_scene.instantiate()
+		_nodes_container.add_child(node)
+		node.position = pos - Vector2(40, 40) # Center 80x80 node on pos
 		
-		if is_completed:
-			btn.text = "★ Level %d — %d pts" % [i, SaveManager.get_best_score(i)]
-		elif is_current:
-			btn.text = "▶ Level %d" % i
-		elif is_unlocked:
-			btn.text = "Level %d" % i
-		else:
-			btn.text = "🔒 Level %d" % i
-			btn.disabled = true
+		var unlocked := SaveManager.is_level_unlocked(level_id)
+		var completed := SaveManager.is_level_completed(level_id)
+		var is_curr := (level_id == current_lvl)
+		var stars := SaveManager.get_level_stars(level_id)
 		
-		var level_id := i  # Capture for lambda
-		btn.pressed.connect(func(): _on_level_pressed(level_id))
-		container.add_child(btn)
+		node.setup(level_id, unlocked, completed, is_curr, stars)
+		node.level_selected.connect(_on_level_selected)
 
 
-func _on_level_pressed(level_id: int) -> void:
+func _on_level_selected(level_id: int) -> void:
 	LevelManager.start_level(level_id)
+
+
+## Smoothly scroll the view to center on the player's current unlocked level.
+func _scroll_to_current_level() -> void:
+	var current_lvl := clampi(SaveManager.get_current_level(), 1, TOTAL_LEVELS)
+	var current_pos := _node_positions[current_lvl - 1]
+	
+	# Scroll so current_pos.y is roughly centered in the 1280 screen height
+	var target_scroll_y := current_pos.y - 640.0
+	target_scroll_y = clampf(target_scroll_y, 0.0, MAP_HEIGHT - 1280.0)
+	
+	if _scroll_container:
+		_scroll_container.scroll_vertical = int(target_scroll_y)

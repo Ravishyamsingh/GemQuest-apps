@@ -56,22 +56,32 @@ func load_game() -> void:
 		data["version"] = SAVE_VERSION
 
 
-## Mark a level as completed, record score, unlock next.
-func complete_level(level_id: int, score: int) -> void:
+## Mark a level as completed, record score and stars, unlock next.
+func complete_level(level_id: int, score: int, stars: int = 1) -> void:
 	var key := str(level_id)
 	if not data["completed_levels"].has(key):
-		data["completed_levels"][key] = {"best_score": score, "completed": true}
+		data["completed_levels"][key] = {"best_score": score, "stars": stars, "completed": true}
 	else:
 		var existing: Dictionary = data["completed_levels"][key]
 		existing["completed"] = true
 		if score > existing.get("best_score", 0):
 			existing["best_score"] = score
+		if stars > existing.get("stars", 0):
+			existing["stars"] = stars
 
 	# Unlock next level
 	if level_id >= data["current_level"]:
 		data["current_level"] = level_id + 1
 
 	save_game()
+
+
+## Get stars earned for a level (0 to 3).
+func get_level_stars(level_id: int) -> int:
+	var key := str(level_id)
+	if data["completed_levels"].has(key):
+		return data["completed_levels"][key].get("stars", 0)
+	return 0
 
 
 ## Get the best score for a level, or 0 if not completed.
