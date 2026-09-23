@@ -39,6 +39,7 @@ func _ready() -> void:
 	# Create music player
 	_music_player = AudioStreamPlayer.new()
 	_music_player.bus = MUSIC_BUS
+	_music_player.finished.connect(_on_music_finished)
 	add_child(_music_player)
 
 	# Create SFX player pool
@@ -99,6 +100,14 @@ func _on_level_lost() -> void:
 	play_sfx_by_name("lose")
 
 
+func _on_music_finished() -> void:
+	# Keep music alive even if an imported stream does not preserve its loop
+	# metadata in an exported build. stop_music() clears this track first, so
+	# result screens and screen transitions are not accidentally restarted.
+	if music_enabled and not _current_bgm_track.is_empty() and _music_player:
+		_music_player.play()
+
+
 func _on_match_found(_matches: Array) -> void:
 	play_sfx_by_name("match")
 
@@ -132,7 +141,16 @@ func play_gameplay_music(fade_in: float = 0.4) -> void:
 func play_music(stream: AudioStream, fade_in: float = 0.5) -> void:
 	if not music_enabled or stream == null:
 		return
-	_music_player.stream = stream
+	var playback_stream: AudioStream = stream
+	# The project uses WAV music. Force looping at runtime as a second line of
+	# defence in addition to the importer setting; this also fixes old exports
+	# made before the loop flag was enabled.
+	if stream is AudioStreamWAV:
+		var looping_stream := stream.duplicate() as AudioStreamWAV
+		if looping_stream:
+			looping_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			playback_stream = looping_stream
+	_music_player.stream = playback_stream
 	_music_player.volume_db = -80.0 if fade_in > 0.0 else 0.0
 	_music_player.play()
 	if fade_in > 0.0:

@@ -25,7 +25,10 @@ func _ready() -> void:
 	pass
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
+	# Process at the viewport input stage. Gameplay has a full-screen visual
+	# background and some platforms route touch/mouse events to that Control
+	# before _unhandled_input; handling here keeps board gestures reliable.
 	if not input_enabled or board_manager == null:
 		reset_touch_state()
 		return

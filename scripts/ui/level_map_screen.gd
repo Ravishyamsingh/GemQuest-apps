@@ -106,13 +106,15 @@ func _generate_map_path() -> void:
 	if _path_line:
 		_path_line.clear_points()
 		_path_line.width = clampf(_map_size.x * 0.014, 7.0, 12.0)
-		_path_line.default_color = Color(1.0, 0.86, 0.35, 0.58)
+		_path_line.default_color = Color(1.0, 0.86, 0.35, 0.82)
+		_path_line.z_index = 1
 		for point in sampled_points:
 			_path_line.add_point(point)
 	if _path_glow:
 		_path_glow.clear_points()
 		_path_glow.width = clampf(_map_size.x * 0.04, 18.0, 30.0)
-		_path_glow.default_color = Color(0.95, 0.64, 0.2, 0.12)
+		_path_glow.default_color = Color(0.95, 0.64, 0.2, 0.24)
+		_path_glow.z_index = 0
 		for point in sampled_points:
 			_path_glow.add_point(point)
 
