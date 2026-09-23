@@ -14,6 +14,7 @@ signal popup_closed()
 @onready var _star3: TextureRect = $CardPanel/MarginContainer/VBoxContainer/StarsContainer/Star3
 @onready var _target_val: Label = $CardPanel/MarginContainer/VBoxContainer/StatsCard/VBox/TargetRow/TargetValue
 @onready var _moves_val: Label = $CardPanel/MarginContainer/VBoxContainer/StatsCard/VBox/MovesRow/MovesValue
+@onready var _difficulty_val: Label = $CardPanel/MarginContainer/VBoxContainer/StatsCard/VBox/DifficultyRow/DifficultyValue
 @onready var _best_val: Label = $CardPanel/MarginContainer/VBoxContainer/StatsCard/VBox/BestRow/BestValue
 @onready var _play_btn: Button = $CardPanel/MarginContainer/VBoxContainer/PlayButton
 
@@ -49,6 +50,7 @@ func setup_and_show(level_id: int) -> void:
 	var data: Dictionary = LevelManager.get_level_data(level_id)
 	var target_score: int = data.get("target_score", 500)
 	var max_moves: int = data.get("max_moves", 25)
+	var difficulty: int = clampi(data.get("difficulty", 1), 1, 10)
 	var stars: int = SaveManager.get_level_stars(level_id)
 	var best_score: int = SaveManager.get_best_score(level_id)
 	
@@ -59,6 +61,8 @@ func setup_and_show(level_id: int) -> void:
 		_target_val.text = "%d pts" % target_score
 	if _moves_val:
 		_moves_val.text = "%d moves" % max_moves
+	if _difficulty_val:
+		_difficulty_val.text = "%d / 10" % difficulty
 	if _best_val:
 		_best_val.text = "%d" % best_score if best_score > 0 else "---"
 	

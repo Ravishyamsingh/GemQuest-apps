@@ -5,7 +5,7 @@
   "max_moves": 30,
   "objective_type": "score_target",
   "target_score": 300,
-  "available_piece_ids": ["diamond", "ruby", "sapphire", "emerald", "topaz"],
+  "available_piece_ids": ["diamond", "ruby", "sapphire", "emerald"],
   "difficulty": 1,
   "obstacles": [],
   "special_rules": {}

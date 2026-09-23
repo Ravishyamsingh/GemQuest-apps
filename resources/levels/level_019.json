@@ -4,9 +4,9 @@
   "grid_rows": 8,
   "max_moves": 12,
   "objective_type": "score_target",
-  "target_score": 2200,
+  "target_score": 2040,
   "available_piece_ids": ["diamond","ruby","sapphire","emerald","topaz","amethyst"],
-  "difficulty": 9,
+  "difficulty": 10,
   "obstacles": [],
   "special_rules": {}
 }

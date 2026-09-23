@@ -107,14 +107,14 @@ func _generate_map_path() -> void:
 		_path_line.clear_points()
 		_path_line.width = clampf(_map_size.x * 0.014, 7.0, 12.0)
 		_path_line.default_color = Color(1.0, 0.86, 0.35, 0.82)
-		_path_line.z_index = 1
+		_path_line.z_index = 2
 		for point in sampled_points:
 			_path_line.add_point(point)
 	if _path_glow:
 		_path_glow.clear_points()
 		_path_glow.width = clampf(_map_size.x * 0.04, 18.0, 30.0)
 		_path_glow.default_color = Color(0.95, 0.64, 0.2, 0.24)
-		_path_glow.z_index = 0
+		_path_glow.z_index = 1
 		for point in sampled_points:
 			_path_glow.add_point(point)
 
@@ -159,12 +159,12 @@ func _populate_decorations() -> void:
 	for child in _decorations.get_children():
 		child.queue_free()
 
-	var symbols := ["✦", "·", "✧"]
+	var symbols := ["✿", "✦", "☁", "✧"]
 	for i in range(14):
 		var accent := Label.new()
 		accent.text = symbols[i % symbols.size()]
 		accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		accent.modulate = Color(1.0, 0.87, 0.45, 0.18 + float(i % 3) * 0.08)
+		accent.modulate = Color(1.0, 0.87, 0.45, 0.22 + float(i % 3) * 0.09)
 		accent.add_theme_font_size_override("font_size", 14 + (i % 3) * 5)
 		var y := 90.0 + float(i) * (_map_size.y - 180.0) / 13.0
 		var x := clampf(_map_size.x * 0.5 + sin(float(i) * 2.2) * _map_size.x * 0.42, 18.0, _map_size.x - 30.0)
